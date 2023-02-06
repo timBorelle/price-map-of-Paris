@@ -1,0 +1,29 @@
+# Sujet
+
+L’objectif est de réaliser une carte des prix moyens (€/m2) de mise en vente par
+
+arrondissement à Paris, accompagnée de statistiques, à partir des annonces
+
+diffusées par les agences immobilières sur le site web de MeilleursAgents.com.
+
+
+Python 3.9 est installé par défaut
+
+Vous avez la liberté d'installer vos libraries préférées via `pip install LIBRARY`.
+Pour lancer l'interface de rendu, vous devrez vous rendre dans le dossier "pikachu" (/home/meilleursagents/pikachu) et exécuter la commande;
+
+`./run.sh`
+
+Vous y accéderez via l'url `http://<ip-de-test>:8080`.
+
+
+Pour vous connecter au serveur postgresql, vous pouvez utiliser la commande:
+
+`psql -h localhost -U meilleursagents meilleursagents`
+
+Sont à votre disposition, les editeurs `vim` et `emacs`, libre à vous de les utiliser ou non.
+Les outils htop, tmux sont installés sur la machine, libre à vous de vous en servir.
+
+Nous utiliserons les fichiers présents sur ce serveur pour évaluer votre rendu.
+
+Pour toute question, n'hésitez pas à nous contacter en utilisant l'adresse: <data+pikachu@meilleursagents.com>
