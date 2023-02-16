@@ -46,14 +46,14 @@ for apart in all_apart:
         print("d[class] " + str(d["class"]))
         print("d.text " + str(d.text))
         if ' '.join(d["class"]) == "listing-price margin-bottom":
-            print("!!!!!!!!!!!!!!!!!!!!!!!")
         #    print(d)
         #    print(d.text)
         #    price = int(d.text)
         #if d[0] == "listing-characteristic margin-bottom":
         #    area = int(0)
         #    room_count = int(0)
-            price = d.text
+            #price = d.text
+            price = int("".join(re.findall('\d+', d.text)))
         if ' '.join(d["class"]) == "listing-characteristic margin-bottom":
             print('before area')
             print(d.text)
@@ -65,7 +65,14 @@ for apart in all_apart:
             #print(re.search('(\d+) m', d.text))
             area = int(area_string)     # int(re.search('(\d+) m', d.text))
             print('area : ' + str(area))
-            room_count = int(re.search('Appartement (\d+) pièces', d.text).group(1))
+            #print(re.findall('(\d+) pièces', d.text))
+            if re.search('studio', d.text, flags=re.IGNORECASE):
+                print("Studio found !")
+                room_count = 2
+            else:
+                match = re.findall('(\d+).*pièces', d.text, flags=re.IGNORECASE)
+                print(match[0])
+                room_count = int(match[0])
     #print('listing_id : ' + str(listing_id))  
     #place_id = apart.f       # ex: 32696 (Paris 15)
     row = {'listing_id': listing_id, 'place_id': '', 'price': price, 'area': area, 'room_count': room_count}
