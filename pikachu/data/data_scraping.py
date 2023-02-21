@@ -1,7 +1,42 @@
 import requests
 from bs4 import BeautifulSoup
 import re
+import psycopg2
 
+def create_tables():
+    """ create tables in the PostgreSQL database"""
+    commands = (
+        """
+        CREATE TABLE aparts (
+            listing_id INTEGER PRIMARY KEY,
+            place_id INTEGER NOT NULL,
+            price INTEGER,
+            area INTEGER NOT NULL,
+            room_count INTEGER NOT NULL
+        ) IF NOT EXISTS
+        """
+    )
+    conn = None
+    try:
+        # read the connection parameters
+        #params = Config()
+        # connect to the PostgreSQL server
+        conn = psycopg2.connect("dbname=meilleursagents user=meilleursagents password=pikachu42!@")
+        cur = conn.cursor()
+        # create table one by one
+        for command in commands:
+            cur.execute(command)
+        # close communication with the PostgreSQL database server
+        cur.close()
+        # commit the changes
+        conn.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    finally:
+        if conn is not None:
+            conn.close()
+
+exit(0)
 #place_ids = str(32682)      # + ',' + str(32697)
 place_ids = "32682"
 first_place_id = 32682
@@ -27,7 +62,6 @@ HEADERS = {
         "Cache-Control": "max-age=0",
 }
 apart_dict = []
-# while true
 while True:
     full_url = url + '?page=' + str(page_index)
     response = requests.get(url, headers=HEADERS)
@@ -93,4 +127,8 @@ while True:
         apart_dict.append(row)
     #price_list = [price.a.div for price in all_apart]
     page_index += 1
+    if page_index == 11:
+        print(len(apart_dict))
+        exit(1)
+
     print(len(all_apart))
