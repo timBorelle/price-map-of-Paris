@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import re
 import psycopg2
 
-def create_tables():
+def create_tables(conn):
     """ create tables in the PostgreSQL database"""
     commands = {
         """
@@ -25,22 +25,25 @@ def create_tables():
         for command in commands:
             cur.execute(command)
         # close communication with the PostgreSQL database server
-        cur.close()
+        #cur.close()
         # commit the changes
         conn.commit()
         print("Table created.")
+        #return cur
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
     finally:
         if conn is not None:
             conn.close()
 
-def scraping_and_inserting_data():
+def scraping_and_inserting_data(conn):
+    conn = psycopg2.connect("host=localhost dbname=meilleursagents user=meilleursagents password=meilleursagents")
+    cur = conn.cursor()
     #place_ids = str(32682)      # + ',' + str(32697)
     place_ids = "32682"
     first_place_id = 32682
-    for i in range(1, 20):
-        place_ids = place_ids + "," + str(first_place_id + i)
+    #for i in range(1, 20):
+    #    place_ids = place_ids + "," + str(first_place_id + i)
     print("place_ids : " + place_ids)
     page_index = 1
     #url = 'https://www.meilleursagents.com/annonces/achat/search/?item_types=ITEM_TYPE.APARTMENT,ITEM_TYPE.HOUSE&place_ids='+place_ids+'&page='+str(page_index)
@@ -63,12 +66,15 @@ def scraping_and_inserting_data():
     apart_dict = []
     while True:
         full_url = url + '?page=' + str(page_index)
-        response = requests.get(url, headers=HEADERS)
-        print("status_code : " + str(response.status_code))
-        if response.status_code == 200 or response.status_code == 301:
+        response = requests.get(full_url, headers=HEADERS)
+        #print("status_code : " + str(response.status_code))
+        print("page_index: " + str(page_index))
+        if response.status_code == 200:             # or response.status_code == 301
             print('200 : OK')
         else:
             print('KO')
+            cur.close()
+            conn.close()
             exit(1)
         soup = BeautifulSoup(response.content , "html.parser")
         #print(soup.prettify())
@@ -83,7 +89,7 @@ def scraping_and_inserting_data():
             for d in apart.a.find_all('div'):
                 # print("d: " + str(d))
                 #print("d[class] " + str(d["class"]))
-                print("d.text " + str(d.text))
+                #print("d.text " + str(d.text))
                 if ' '.join(d["class"]) == "text--muted text--small":
                     district_number = int("".join(re.findall('\d+', d.text)))
                     place_id = 32681 + district_number
@@ -101,9 +107,9 @@ def scraping_and_inserting_data():
                     else:
                         price = int("".join(re.findall('\d+', d.text)))
                 if ' '.join(d["class"]) == "listing-characteristic margin-bottom":
-                    print('before area')
-                    print(d.text)
-                    print(type(d.text))
+                    #print('before area')
+                    #print(d.text)
+                    #print(type(d.text))
                     #print(re.search('-.*(\d+).*m', d.text).group(1))
                     #print(str(re.findall('- (\d+)', d.text)))
                     area_string = str(re.findall('- (\d+)', d.text)[0])
@@ -113,22 +119,34 @@ def scraping_and_inserting_data():
                     #print('area : ' + str(area))
                     #print(re.findall('(\d+) pièces', d.text))
                     if re.search('studio', d.text, flags=re.IGNORECASE):
-                        print("Studio found !")
                         room_count = 1
                     else:
                         match = re.findall('(\d+).*pièces', d.text, flags=re.IGNORECASE)
-                        print(match[0])
+                        #print(match[0])
                         room_count = int(match[0])
             #print('listing_id : ' + str(listing_id))  
             #place_id = apart.f       # ex: 32696 (Paris 15)
             row = {'listing_id': listing_id, 'place_id': place_id, 'price': price, 'area': area, 'room_count': room_count}
-            print('row : ' + str(row))
+            command = """
+                INSERT INTO aparts (listing_id, place_id, price, area, room_count)
+                VALUES(%s,%s,%s,%s,%s)
+                ON CONFLICT (listing_id) DO UPDATE SET
+                (place_id, price, area, room_count) = (EXCLUDED.place_id, EXCLUDED.price, EXCLUDED.area, EXCLUDED.room_count) 
+            """
+            #("""+listing_id+""", """+place_id+""", """+price+""", """+area+""", """+room_count+""")
+            cur.execute(command, (listing_id, place_id, price, area, room_count))
+            conn.commit()
+            if price == None:
+                print('row : ' + str(row))
+                exit(1)
+            #print('row : ' + str(row))
             apart_dict.append(row)
         #price_list = [price.a.div for price in all_apart]
         page_index += 1
-        if page_index == 11:
-            print(len(apart_dict))
-            exit(1)
-        print(len(all_apart))
+        #print(len(all_apart))
 
-create_tables()
+#conn = None
+#conn = psycopg2.connect("host=localhost dbname=meilleursagents user=meilleursagents password=meilleursagents")
+#cur = conn.cursor()
+create_tables(conn=None)
+scraping_and_inserting_data(conn=None)
