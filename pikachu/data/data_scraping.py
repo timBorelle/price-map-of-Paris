@@ -5,7 +5,7 @@ import psycopg2
 from datetime import datetime
 import time
 
-def create_tables(conn):
+def create_tables():
     """ create tables in the PostgreSQL database"""
     commands = {
         """
@@ -27,31 +27,21 @@ def create_tables(conn):
         # create table one by one
         for command in commands:
             cur.execute(command)
-        # close communication with the PostgreSQL database server
-        #cur.close()
         # commit the changes
         conn.commit()
         print("Table created.")
-        #return cur
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
     finally:
         if conn is not None:
+            # close communication with the PostgreSQL database server
             conn.close()
 
-def scraping_and_inserting_data(conn):
+def scraping_and_inserting_data():
     conn = psycopg2.connect("host=localhost dbname=meilleursagents user=meilleursagents password=meilleursagents")
     cur = conn.cursor()
-    #place_ids = str(32682)      # + ',' + str(32697)
-    place_ids = "32682"
-    first_place_id = 32682
-    #for i in range(1, 20):
-    #    place_ids = place_ids + "," + str(first_place_id + i)
-    print("place_ids : " + place_ids)
     page_index = 1
-    #url = 'https://www.meilleursagents.com/annonces/achat/search/?item_types=ITEM_TYPE.APARTMENT,ITEM_TYPE.HOUSE&place_ids='+place_ids+'&page='+str(page_index)
-    url = 'https://www.meilleursagents.com/annonces/achat/paris-75000/'
-    print(url)
+    url = 'https://www.meilleursagents.com/annonces/achat/paris-75000/?item_types=ITEM_TYPE.APARTMENT,ITEM_TYPE.HOUSE'
     # custom headers (in order to avoid error 403)
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:98.0) Gecko/20100101 Firefox/98.0",
@@ -68,10 +58,9 @@ def scraping_and_inserting_data(conn):
     }
     apart_dict = []
     while True:
-        full_url = url + '?page=' + str(page_index)
+        full_url = url + '&page=' + str(page_index)
         print(full_url)
         response = requests.get(full_url, headers=HEADERS)
-        #print("status_code : " + str(response.status_code))
         print("page_index: " + str(page_index))
         if response.status_code == 200:             # or response.status_code == 301
             print('200 : OK')
@@ -81,33 +70,16 @@ def scraping_and_inserting_data(conn):
             conn.close()
             exit(1)
         soup = BeautifulSoup(response.content , "html.parser")
-        #print(soup.prettify())
-        #all_apart = soup.find('div', attrs={'class': "search-listing-result__content"})
         all_apart = soup.find_all('div', attrs={'class': "listing-item__content"})
-        #listing_price = soup.select('.listing-price.margin-bottom')
-        #print('listing_price')
-        #print(listing_price)
-        #print(all_apart)
         for apart in all_apart:
             listing_id = int(re.search('achat/(.+?)/', apart.a.get('href')).group(1))
             for d in apart.a.find_all('div'):
-                # print("d: " + str(d))
-                #print("d[class] " + str(d["class"]))
-                #print("d.text " + str(d.text))
                 if ' '.join(d["class"]) == "text--muted text--small":
                     district_number = int("".join(re.findall('\d+', d.text)))
                     place_id = 32681 + district_number
                 if ' '.join(d["class"]) == "listing-price margin-bottom":
-                #    print(d)
-                #    print(d.text)
-                #    price = int(d.text)
-                #if d[0] == "listing-characteristic margin-bottom":
-                #    area = int(0)
-                #    room_count = int(0)
-                    #price = d.text
                     if re.search('.*Prix non communiqué.*', d.text, flags=re.IGNORECASE):
-                        print("#################### Prix nc")
-                        price = None    # "Prix non communiqué"
+                        price = None                # "Prix non communiqué"
                     else:
                         price = int("".join(re.findall('\d+', d.text)))
                 if ' '.join(d["class"]) == "listing-characteristic margin-bottom":
@@ -122,31 +94,17 @@ def scraping_and_inserting_data(conn):
                             room_count = int(re.findall('(\d+) *pièces', d.text, flags=re.IGNORECASE)[0])
                         else:
                             room_count = -1         # if the room count is not specified in the title of the ad
-            #print('listing_id : ' + str(listing_id))  
-            #place_id = apart.f       # ex: 32696 (Paris 15)
             publication_date = datetime.today().strftime('%Y-%m-%d')
-            row = {'listing_id': listing_id, 'place_id': place_id, 'price': price, 'area': area, 'room_count': room_count, 'publication_date': publication_date}
             command = """
                 INSERT INTO aparts (listing_id, place_id, price, area, room_count, publication_date)
                 VALUES(%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (listing_id) DO UPDATE SET
                 (place_id, price, area, room_count) = (EXCLUDED.place_id, EXCLUDED.price, EXCLUDED.area, EXCLUDED.room_count) 
             """
-            #("""+listing_id+""", """+place_id+""", """+price+""", """+area+""", """+room_count+""")
             cur.execute(command, (listing_id, place_id, price, area, room_count, publication_date))
             conn.commit()
-            if price == None:
-                print('row : ' + str(row))
-                exit(1)
-            #print('row : ' + str(row))
-            apart_dict.append(row)
-        #price_list = [price.a.div for price in all_apart]
         page_index += 1
         time.sleep(10)
-        #print(len(all_apart))
 
-#conn = None
-#conn = psycopg2.connect("host=localhost dbname=meilleursagents user=meilleursagents password=meilleursagents")
-#cur = conn.cursor()
-create_tables(conn=None)
-scraping_and_inserting_data(conn=None)
+create_tables()
+scraping_and_inserting_data()
